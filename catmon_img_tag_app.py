@@ -151,12 +151,16 @@ def tag_image(image_name, image_id, tag_name):
     # set new parent folder id
     new_parent_folder_id = tag_folder_ids_d[tag_name]
     
-    # Move the image file to the selected tag folder
-    drive_service.files().update(
-        fileId=image_id,
-        addParents=new_parent_folder_id,
-        removeParents=curr_parent_folder_id,
-        fields='id, parents').execute()
+    try:
+        # Move the image file to the selected tag folder
+        drive_service.files().update(
+            fileId=image_id,
+            addParents=new_parent_folder_id,
+            removeParents=curr_parent_folder_id,
+            fields='id, parents').execute()
+    except Exception as e:
+        st.error(f"Unexpected error encountered: {e}")
+        return
         
     
     # update session data
