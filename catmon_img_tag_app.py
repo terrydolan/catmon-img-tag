@@ -321,7 +321,7 @@ if check_password():
 # show guidelines    
     with st.expander("Tagging Guidelines", expanded=True):
         st.markdown("""- Tag as Boo or Simba if the cat is clearly identifiable.
-                    It is ok if image is dark.""")
+                    It is ok if image is a *little bit* dark.""")
         st.markdown("""- Discard the image if it is unclear e.g. a very dark 
                     image where cat not clearly visible.""")
         st.markdown("""- The tagging of the previous image can be undone.
