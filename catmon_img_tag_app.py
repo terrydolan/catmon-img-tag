@@ -120,7 +120,7 @@ def check_password():
 @st.experimental_singleton(suppress_st_warning=True)
 def gdrive_connect():
     """Connect to google drive service"""
-    st.write("call to gdrive_connect()")
+    print("call to gdrive_connect()")
     
     # load json authentication string from environment variable
     # it may contain escape chars so strict set to False
