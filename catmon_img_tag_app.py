@@ -7,7 +7,7 @@ as either Boo or Simba and move to appropriate folder
 on google drive.
 
 To run:
-    $streamlit run catmon_img_app.py
+    $streamlit run catmon_img_tag_app.py
 
 History
 v0.1.0 - Jan 2022, First version
@@ -16,7 +16,9 @@ v0.1.0 - Jan 2022, First version
 import io
 import streamlit as st
 import json
-from PIL import Image
+import math
+import time
+from PIL import Image, ImageStat
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
@@ -39,8 +41,14 @@ tag_folder_ids_d = {
     # MyDrive:/catmon-pics/simba_images             
     'Simba': '1UCd7upRS2gaQX9JJRcwMZY9R-GwsrQNb',
     # MyDrive:/catmon-pics/discard_images 
-    'Discard': '1-EUYQ42_n0REMg7t2Agkhhuv1qiWURs5'
+    'Discard': '1-EUYQ42_n0REMg7t2Agkhhuv1qiWURs5',
+    # MyDrive:/catmon-pics/auto_discard_images 
+    'Auto-Discard': '1RDCG3OoRVoRHjNoOZv4vOv_zf-0hu2nG'
     }
+
+# define image brightness threshold
+# any images darker than this threshold will be auto discarded
+IMAGE_BRIGHTNESS_THRESHOLD = 25
 
 # initialise session stats data
 if "stats" not in st.session_state:
@@ -51,6 +59,7 @@ if "stats" not in st.session_state:
         'Boo': 0,
         'Simba': 0,
         'Discard': 0,
+        'Auto-Discard': 0,
         'Undo': 0
         }
     st.session_state["stats"] = stats_d
@@ -201,6 +210,7 @@ def undo_tag_image():
         addParents=new_parent_folder_id,
         removeParents=curr_parent_folder_id,
         fields='id, parents').execute()
+    time.sleep(1)
         
     # update session data
     st.session_state["stats"][tag_name] -= 1
@@ -253,17 +263,51 @@ def get_drive_image(drive_service):
     
     return image_name, image_id, image_obj
 
+def brightness(image_obj):
+    """Calculate the perceived brightness of a given image object.
+    
+    Ref: https://stackoverflow.com/questions/3490727/what-are-some-methods-to-analyze-image-brightness-using-python
+    Ref: http://alienryderflex.com/hsp.html
+    
+    "The three constants (.299, .587, and .114) represent the different 
+    degrees to which each of the primary (RGB) colors affects human 
+    perception of the overall brightness of a color."""
+    R_CONST = 0.299
+    G_CONST = 0.587
+    B_CONST = 0.114
+    stat = ImageStat.Stat(image_obj)
+    r, g, b = stat.mean
+    return math.sqrt(R_CONST*(r**2) + G_CONST*(g**2) + B_CONST*(b**2))
+
 
 if check_password():
     st.title("Catmon Image Tagging App")
     
     # connect to gdrive and get the next image
     drive_service = gdrive_connect()
-    image_name, image_id, image_obj = get_drive_image(drive_service)
-        
-    # tag the image
+    
+
+    # define columns for user image tagging
     col1, col2, col3 = st.columns([0.6, 3, 3])
     col4, col5, col6, col7 = st.columns([1, 1, 1, 3])
+    
+    # get image to tag
+    image_not_ready = True
+    while image_not_ready:
+        with st.spinner('Loading next image to tag...'):
+            image_name, image_id, image_obj = get_drive_image(drive_service)
+        
+            # auto discard image if too dark
+            image_brightness = brightness(image_obj)
+            print('DEBUG:', image_name, image_brightness)
+            if image_brightness <= IMAGE_BRIGHTNESS_THRESHOLD:
+                with col2.empty():
+                    st.write(f"Auto-discarding dark image {image_name})")
+                    tag_image(image_name, image_id, 'Auto-Discard')
+                    time.sleep(1)
+                    st.empty()
+            else:
+                image_not_ready = False
     
     with col1:
         st.button(
@@ -276,6 +320,7 @@ if check_password():
         
     with col2:
         st.image(image_obj, caption=image_name)
+        st.empty()
         
     with col3:
         st.button(
@@ -310,7 +355,7 @@ if check_password():
     
     # show tagging stats
     st.subheader("Tag Metrics")
-    col7, col8, col9, col10 = st.columns(4)
+    col7, col8, col9, col10, col11 = st.columns(5)
     delta_calc = lambda tag: st.session_state["consec"]["tot"] \
             if tag == st.session_state["consec"]["name"] else None
     col7.metric("Boo count", st.session_state["stats"]["Boo"], 
@@ -319,7 +364,9 @@ if check_password():
                 delta=delta_calc("Simba"))
     col9.metric("Discard count", st.session_state["stats"]["Discard"], 
                 delta=delta_calc("Discard"))
-    col10.metric("Undo count", st.session_state["stats"]["Undo"], 
+    col10.metric("Auto-Discard count", st.session_state["stats"]["Auto-Discard"], 
+                delta=delta_calc("Discard"))
+    col11.metric("Undo count", st.session_state["stats"]["Undo"], 
                  delta=delta_calc("Undo"))
     
 # show guidelines    
