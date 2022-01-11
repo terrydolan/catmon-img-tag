@@ -31,19 +31,29 @@ __status__ = "Beta"
 __version__ = "0.1.0"
 __updated__ = "January 2022"
 
+
+# configure streamlit page
+st.set_page_config(
+    page_title=None, page_icon=":cat:", layout="centered", 
+    initial_sidebar_state="auto", menu_items={
+    'About': "Catmon Image Tagging App"
+    }
+)
+
 # define the google drive file id of the root 'catmon-pics' folder
-CATMON_PICS_FILE_ID = '0B_9gkYu_zwEhOXFaamt6c2VDbWs'
+CATMON_PICS_FOLDER_ID = st.secrets["CATMON_PICS_FOLDER_ID"]
 
 # define a dict to hold the tag folder ids on my google drive
+# the parent of these folders is the root catmon-pics folder
 tag_folder_ids_d = {
     # MyDrive:/catmon-pics/boo_images 
-    'Boo': '1PKshEZDdQWhKctBewPA6-wF6JpozaLaw',
+    'Boo': st.secrets["BOO_FOLDER_ID"],
     # MyDrive:/catmon-pics/simba_images             
-    'Simba': '1UCd7upRS2gaQX9JJRcwMZY9R-GwsrQNb',
+    'Simba': st.secrets["SIMBA_FOLDER_ID"],
     # MyDrive:/catmon-pics/discard_images 
-    'Discard': '1-EUYQ42_n0REMg7t2Agkhhuv1qiWURs5',
+    'Discard': st.secrets["DISCARD_FOLDER_ID"],
     # MyDrive:/catmon-pics/auto_discard_images 
-    'Auto-Discard': '1RDCG3OoRVoRHjNoOZv4vOv_zf-0hu2nG'
+    'Auto-Discard': st.secrets["AUTO_DISCARD_FOLDER_ID"]
     }
 
 # define image brightness threshold
@@ -86,10 +96,7 @@ if "previous_tag" not in st.session_state:
         'tag_name': None
         }
     st.session_state["previous_tag"] = previous_tag_d
-        
-    # st.session_state["previous_tag_initialised"] = True
     
-
 def check_password():
     """Returns True if the user enters the correct catmon_password.
 
@@ -151,7 +158,9 @@ def tag_image(image_name, image_id, tag_name):
     
     Tagging is achieved by moving the given image to the 
     assigned google drive folder for the given tag.
-    """    
+    """
+    print(f'\tDEBUG: {image_name} ({image_id}), {tag_name}')
+    
     # set current parent folder id
     image_parents = drive_service.files().get(fileId=image_id,
                                      fields='parents').execute()
@@ -171,7 +180,7 @@ def tag_image(image_name, image_id, tag_name):
         st.error(f"Unexpected error encountered: {e}")
         return
         
-    
+            
     # update session data
     if tag_name == st.session_state["consec"]["name"]:
         # consecutive tagging continues
@@ -185,8 +194,7 @@ def tag_image(image_name, image_id, tag_name):
     st.session_state["previous_tag"]["image_name"] = image_name
     st.session_state["previous_tag"]["image_id"] = image_id
     st.session_state["previous_tag"]["tag_name"] = tag_name
-    
-    
+
 def undo_tag_image():
     """Undo previous tag of image.
     
@@ -202,7 +210,7 @@ def undo_tag_image():
     curr_parent_folder_id = tag_folder_ids_d[tag_name]
     
     # set new parent folder id (move the image back to the root folder)
-    new_parent_folder_id = CATMON_PICS_FILE_ID
+    new_parent_folder_id = CATMON_PICS_FOLDER_ID
     
     # Move the image file to the selected tag folder
     drive_service.files().update(
@@ -242,16 +250,14 @@ def get_drive_image(drive_service):
     
     Return the image_name, image_id and the image object"""
     FILES_PER_PAGE = 1
-    PAGE_TOKEN = None
 
-    # read data on next image
-    query = f"'{CATMON_PICS_FILE_ID}' in parents and mimeType='image/jpeg'"
+    # read next image file in root folder
+    query = f"'{CATMON_PICS_FOLDER_ID}' in parents and mimeType='image/jpeg'"
     response = drive_service.files().list(
         q=query,
         spaces='drive',
-        fields='nextPageToken, files(id, name)',
-        pageSize=FILES_PER_PAGE,
-        pageToken=PAGE_TOKEN).execute()
+        fields='files(id, name)',
+        pageSize=FILES_PER_PAGE).execute()
 
     # extract the image data
     file = response.get('files', [])[0]    
@@ -286,20 +292,31 @@ if check_password():
     # connect to gdrive and get the next image
     drive_service = gdrive_connect()
     
-
     # define columns for user image tagging
     col1, col2, col3 = st.columns([0.6, 3, 3])
     col4, col5, col6, col7 = st.columns([1, 1, 1, 3])
     
     # get image to tag
     image_not_ready = True
+    duplicate = 0
     while image_not_ready:
         with st.spinner('Loading next image to tag...'):
             image_name, image_id, image_obj = get_drive_image(drive_service)
+            
+            # get another image if duplicate
+            if image_id == st.session_state["previous_tag"]["image_id"]:
+                duplicate += 1
+                print(f"DEBUG: {image_name}, duplicate {duplicate}")
+                with col2.empty():
+                    st.write(f"Duplicate image found: {image_name}, requesting another ({duplicate})...)")
+                    if duplicate < 3:
+                        time.sleep(1)
+                        st.empty()
+                        continue
         
             # auto discard image if too dark
             image_brightness = brightness(image_obj)
-            print('DEBUG:', image_name, image_brightness)
+            print(f"DEBUG: {image_name}, brightness: {image_brightness}")
             if image_brightness <= IMAGE_BRIGHTNESS_THRESHOLD:
                 with col2.empty():
                     st.write(f"Auto-discarding dark image {image_name})")
@@ -374,6 +391,7 @@ if check_password():
         st.markdown("""- Tag as Boo or Simba if the cat is clearly identifiable.
                     It is ok if image is a *little bit* dark.""")
         st.markdown("""- Discard the image if it is unclear e.g. a very dark 
-                    image where cat not clearly visible.""")
+                    image where a cat is not clearly visible; or if there is 
+                    a temporary obstruction e.g. a shopping bag!""")
         st.markdown("""- The tagging of the previous image can be undone.
                     You can only go back one step.""")
