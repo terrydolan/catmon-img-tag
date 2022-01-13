@@ -34,7 +34,7 @@ __updated__ = "January 2022"
 
 # configure streamlit page
 st.set_page_config(
-    page_title=None, page_icon=":cat:", layout="centered", 
+    page_title="catmon_img_tag_app", page_icon=":cat:", layout="centered", 
     initial_sidebar_state="auto", menu_items={
     'About': "Catmon Image Tagging App"
     }
