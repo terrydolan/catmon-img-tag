@@ -1,16 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Catmon Image Web App
+Catmon Image Tagging Web App
 
-The web app provides a UI to classify catmon images
-as either Boo or Simba and move to appropriate folder
-on google drive.
+The web app provides a UI to classify catmon images as either 'Boo' or 'Simba' 
+and move to appropriate folder on google drive.
+
+If the cat cannot easily be identified then it may also be classified as 
+'Unclear'.
+
+The app automatically discards images that are too dark to classify.
+
 
 To run:
     $streamlit run catmon_img_tag_app.py
 
 History
 v0.1.0 - Jan 2022, First version
+v0.2.0 - Jun 2022, Change 'Discard' to 'Unclear' 
 """
 
 import io
@@ -28,8 +34,8 @@ __copyright__ = "Terry Dolan"
 __license__ = "MIT"
 __email__ = "terry8dolan@gmail.com"
 __status__ = "Beta"
-__version__ = "0.1.0"
-__updated__ = "January 2022"
+__version__ = "0.2.0"
+__updated__ = "June 2022"
 
 
 # configure streamlit page
@@ -50,10 +56,10 @@ tag_folder_ids_d = {
     'Boo': st.secrets["BOO_FOLDER_ID"],
     # MyDrive:/catmon-pics/simba_images             
     'Simba': st.secrets["SIMBA_FOLDER_ID"],
-    # MyDrive:/catmon-pics/discard_images 
-    'Discard': st.secrets["DISCARD_FOLDER_ID"],
     # MyDrive:/catmon-pics/auto_discard_images 
-    'Auto-Discard': st.secrets["AUTO_DISCARD_FOLDER_ID"]
+    'Auto-Discard': st.secrets["AUTO_DISCARD_FOLDER_ID"],
+    # MyDrive:/catmon-pics/unclear_images 
+    'Unclear': st.secrets["UNCLEAR_FOLDER_ID"]
     }
 
 # define image brightness threshold
@@ -68,7 +74,7 @@ if "stats" not in st.session_state:
     stats_d = {
         'Boo': 0,
         'Simba': 0,
-        'Discard': 0,
+        'Unclear': 0,
         'Auto-Discard': 0,
         'Undo': 0
         }
@@ -350,11 +356,11 @@ if check_password():
         
     with col5:
         st.button(
-            label='Discard', 
-            key='btn_discard', 
-            help='Press this button to discard the image (no clear cat!)',
+            label='Unclear', 
+            key='btn_unclear', 
+            help='Press this button if there is no clear cat!',
             on_click=tag_image,
-            args=(image_name, image_id, 'Discard')
+            args=(image_name, image_id, 'Unclear')
             )
         
     with col6:
@@ -379,19 +385,19 @@ if check_password():
                 delta=delta_calc("Boo"))
     col8.metric("Simba count", st.session_state["stats"]["Simba"], 
                 delta=delta_calc("Simba"))
-    col9.metric("Discard count", st.session_state["stats"]["Discard"], 
-                delta=delta_calc("Discard"))
+    col9.metric("Unclear count", st.session_state["stats"]["Unclear"], 
+                delta=delta_calc("Unclear"))
     col10.metric("Auto-Discard count", st.session_state["stats"]["Auto-Discard"], 
-                delta=delta_calc("Discard"))
+                delta=delta_calc("Auto-Discard"))
     col11.metric("Undo count", st.session_state["stats"]["Undo"], 
                  delta=delta_calc("Undo"))
     
 # show guidelines    
     with st.expander("Tagging Guidelines", expanded=True):
         st.markdown("""- Tag as Boo or Simba if the cat is clearly identifiable.
-                    It is ok if image is a *little bit* dark.""")
-        st.markdown("""- Discard the image if it is unclear e.g. a very dark 
-                    image where a cat is not clearly visible; or if there is 
-                    a temporary obstruction e.g. a shopping bag!""")
+                    It is ok if the image is dark or blurred. 
+                    Or if only part of the cat is shown e.g. a fast entry!""")
+        st.markdown("""- Tag as Unclear if the cat is cannot be identified e.g. 
+                    a very dark image where a cat is not clearly visible.""")
         st.markdown("""- The tagging of the previous image can be undone.
                     You can only go back one step.""")
