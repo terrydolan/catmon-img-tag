@@ -11,8 +11,6 @@
 *.pyc
 *.tmp
 *.txt
-!requirements.txt
-!runtime.txt
 *.xlsx
 tmp*.*
 *.old*
@@ -24,9 +22,14 @@ Thumbs.db
 .ipynb_checkpoints/
 
 # archive and tmp folder files
-archive/
+archive*/
 tmp*/
 snapshot*/
 
 # streamlit secrets
 .streamlit
+
+# override
+!requirements.txt
+!runtime.txt
+!images/*.jpg
