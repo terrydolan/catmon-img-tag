@@ -19,6 +19,8 @@ To run:
 History
 v0.1.0 - Jan 2022, First version
 v0.2.0 - Jun 2022, Change 'Discard' to 'Unclear'
+v0.3.0 - Jun 2023, Replace st.experimental_singleton with st.cache_resource
+         Update streamlit and googleapiclient versions
 """
 
 import io
@@ -37,8 +39,8 @@ __copyright__ = "Terry Dolan"
 __license__ = "MIT"
 __email__ = "terry8dolan@gmail.com"
 __status__ = "Beta"
-__version__ = "0.2.0"
-__updated__ = "June 2022"
+__version__ = "0.3.0"
+__updated__ = "June 2023"
 
 
 # configure streamlit page
@@ -142,7 +144,7 @@ def check_password():
         # Password correct
         return True
 
-@st.experimental_singleton(suppress_st_warning=True)
+@st.cache_resource
 def gdrive_connect():
     """Connect to google drive service"""
     print("call to gdrive_connect()")
